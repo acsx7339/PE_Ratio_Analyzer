@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { scanFinancialStocks, scanMarketStatus, fetchMarketNews } from './services/geminiService';
-import { ScannerResult, MarketResult, NewsItem } from './types';
+import { ScannerResult, MarketResult, NewsItem, MarketPulse } from './types';
 
 const PriceLevelGauge: React.FC<{ level: number }> = ({ level }) => {
   const percentage = Math.min(Math.max(level, 0), 100);
@@ -47,6 +47,7 @@ const App: React.FC = () => {
   const [longTermResults, setLongTermResults] = useState<ScannerResult[] | null>(null);
   const [marketResults, setMarketResults] = useState<MarketResult[] | null>(null);
   const [newsResults, setNewsResults] = useState<NewsItem[] | null>(null);
+  const [marketPulse, setMarketPulse] = useState<MarketPulse | null>(null);
 
   // Helper to check if any task is running (to disable buttons)
   const isAnyScanning = financialLoading || marketLoading || longTermLoading || newsLoading;
@@ -112,8 +113,9 @@ const App: React.FC = () => {
     e?.stopPropagation();
     setNewsLoading(true);
     try {
-      const newsData = await fetchMarketNews();
-      setNewsResults(newsData);
+      const { news, pulse } = await fetchMarketNews();
+      setNewsResults(news);
+      setMarketPulse(pulse);
     } catch (e) {
       console.error("News fetch failed", e);
     } finally {
@@ -165,8 +167,9 @@ const App: React.FC = () => {
       // 4. News (Slowest, do last)
       setNewsLoading(true);
       try {
-        const newsData = await fetchMarketNews();
-        setNewsResults(newsData);
+        const { news, pulse } = await fetchMarketNews();
+        setNewsResults(news);
+        setMarketPulse(pulse);
       } catch (e) {
         console.error("News fetch failed", e);
       } finally {
@@ -770,6 +773,48 @@ const App: React.FC = () => {
                   </div>
                </div>
             </div>
+
+            {/* Market Radar Block */}
+            {marketPulse && (
+              <div className="bg-white rounded-[40px] p-8 md:p-12 shadow-xl border border-slate-100 flex flex-col md:flex-row gap-12 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-100 rounded-full blur-[100px] opacity-50 -z-10"></div>
+                
+                <div className="md:w-1/3">
+                   <h3 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
+                     <i className="fas fa-radar text-fuchsia-600 animate-pulse"></i> 產業熱度雷達
+                   </h3>
+                   <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 h-full">
+                      <p className="text-sm text-slate-600 leading-relaxed font-bold italic">
+                        "{marketPulse.trendSummary}"
+                      </p>
+                      <div className="mt-6 flex items-center gap-2 text-xs font-bold text-slate-400">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        AI 即時分析生成
+                      </div>
+                   </div>
+                </div>
+
+                <div className="md:w-2/3 flex flex-col justify-center">
+                   <div className="space-y-6">
+                     {marketPulse.hotSectors.map((sector, idx) => (
+                       <div key={idx}>
+                         <div className="flex justify-between items-end mb-2">
+                           <span className="text-lg font-black text-slate-700">{sector.name}</span>
+                           <span className="text-sm font-bold text-fuchsia-600">{sector.intensity}% 熱度</span>
+                         </div>
+                         <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                           <div 
+                              className="h-full bg-gradient-to-r from-fuchsia-400 to-purple-600 rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${sector.intensity}%` }}
+                           ></div>
+                         </div>
+                         <p className="text-xs text-slate-400 mt-1 font-medium">{sector.reason}</p>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+              </div>
+            )}
 
             {newsLoading ? (
                <div className="text-center py-20">

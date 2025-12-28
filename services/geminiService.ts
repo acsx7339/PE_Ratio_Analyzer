@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, ScannerResult, MarketResult, NewsItem, FINANCIAL_STOCKS, MARKET_TICKERS } from "../types";
+import { AnalysisResult, ScannerResult, MarketResult, NewsResponse, FINANCIAL_STOCKS, MARKET_TICKERS } from "../types";
 
 const cleanAndParseJSON = (text: string | undefined) => {
   if (!text) return null;
@@ -263,25 +263,29 @@ export const scanMarketStatus = async (): Promise<MarketResult[]> => {
   return parsed.results;
 };
 
-export const fetchMarketNews = async (): Promise<NewsItem[]> => {
+export const fetchMarketNews = async (): Promise<NewsResponse> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   const prompt = `你是一位崇尚「題材炒作」與「資金流向」的市場消息靈通人士。你的座右銘是：「風口來了，豬都會飛。」
   請搜尋**最近一個月內**台股市場最熱門的「八卦」、「題材」、「籌碼動向」與「社群熱議」話題。
   
+  任務 1: 詳細新聞清單
   重點關注：
   1. 新聞標題與市場情緒 (Sentiment)：誇張、聳動、具爆發力的題材。
   2. 法人籌碼 (Chips)：外資、投信異常買賣超的標的。
   3. 社群熱度 (Community)：PTT 股版、同學會討論度最高的股票。
   4. 產業行事曆 (Event)：法說會、展覽 (如 CES)、新產品發布。
-  
   請整理出 6 則最符合「風口」的消息。
+
+  任務 2: 市場脈動總結 (Market Pulse)
+  - trendSummary: 請用一段精簡的話 (50字內)，總結目前市場的主流資金流向與整體氣氛 (例如：資金全面湧入 AI 供應鏈，航運股休息)。
+  - hotSectors: 請歸納出目前最熱門的 3-4 個「產業板塊」(例如：半導體、重電、航運)，並給予每個板塊 0-100 的熱度評分 (intensity)。
   
   欄位說明：
   - title: 聳動且吸引眼球的標題。
   - summary: 像在講內線消息一樣的口吻，簡述資金流向與炒作理由 (50字內)。
   - category: 必須為 'Hype'(題材), 'Chips'(籌碼), 'Community'(社群), 'Event'(行事曆), 'Policy'(政策) 其中之一。
   - sentiment: positive(偏多/炒作), negative(偏空/倒貨), neutral(觀望)。
-  - keywords: 該新聞相關的熱門關鍵字 (例如: "CoWoS", "機器人", "散戶多單")。
+  - keywords: 該新聞相關的熱門關鍵字。
   - relatedTickers: 相關個股代號。`;
 
   const response = await ai.models.generateContent({
@@ -292,7 +296,7 @@ export const fetchMarketNews = async (): Promise<NewsItem[]> => {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
-        required: ["news"],
+        required: ["news", "pulse"],
         properties: {
           news: {
             type: Type.ARRAY,
@@ -309,6 +313,25 @@ export const fetchMarketNews = async (): Promise<NewsItem[]> => {
                 keywords: { type: Type.ARRAY, items: { type: Type.STRING } }
               }
             }
+          },
+          pulse: {
+            type: Type.OBJECT,
+            required: ["trendSummary", "hotSectors"],
+            properties: {
+              trendSummary: { type: Type.STRING },
+              hotSectors: {
+                type: Type.ARRAY,
+                items: {
+                   type: Type.OBJECT,
+                   required: ["name", "intensity", "reason"],
+                   properties: {
+                      name: { type: Type.STRING },
+                      intensity: { type: Type.NUMBER },
+                      reason: { type: Type.STRING }
+                   }
+                }
+              }
+            }
           }
         }
       }
@@ -316,8 +339,8 @@ export const fetchMarketNews = async (): Promise<NewsItem[]> => {
   });
 
   const parsed = cleanAndParseJSON(response.text);
-  if (!parsed || !parsed.news) {
+  if (!parsed || !parsed.news || !parsed.pulse) {
     throw new Error("Invalid news data returned from model");
   }
-  return parsed.news;
+  return parsed;
 };

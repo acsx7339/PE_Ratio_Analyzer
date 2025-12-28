@@ -87,6 +87,17 @@ export interface MarketResult {
   description: string;
 }
 
+export interface SectorHeat {
+  name: string;
+  intensity: number; // 0-100
+  reason: string;
+}
+
+export interface MarketPulse {
+  trendSummary: string; // 整體市場氣氛總結
+  hotSectors: SectorHeat[]; // 熱門板塊列表
+}
+
 export interface NewsItem {
   title: string;
   summary: string;
@@ -95,6 +106,11 @@ export interface NewsItem {
   impactLevel: 'high' | 'medium' | 'low';
   relatedTickers: string[];
   keywords: string[];
+}
+
+export interface NewsResponse {
+  news: NewsItem[];
+  pulse: MarketPulse;
 }
 
 export const FINANCIAL_STOCKS = [

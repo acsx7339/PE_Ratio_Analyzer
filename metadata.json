@@ -1,0 +1,5 @@
+{
+  "name": "台股本淨比河流圖分析器",
+  "description": "專業級台股本淨比 (PB Ratio) 河流圖視覺化工具，協助投資者利用 Gemini 驅動的數據分析，識別歷史估值的低檔與高檔區間。",
+  "requestFramePermissions": []
+}
